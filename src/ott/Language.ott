@@ -1,0 +1,540 @@
+metavar exprvar, x, y, z ::= {{ com variables }} {{ repr-locally-nameless }}
+metavar number, n ::= {{ com numbers }} {{ coq nat }}
+
+grammar
+
+kind, k :: 'k_' ::= {{ com kind }}
+  | *   :: :: star {{ com type of type }}
+  | box :: :: box  {{ com type of type of type }}
+
+expr, e, A, B, C, D, t {{ tex \tau }}, s {{ tex \sigma }} :: 'e_' ::= {{ com expressions }}
+  | x       :: :: var  {{ com variable }}
+  | k       :: :: kind {{ com type of type }}
+  | n       :: :: num  {{ com integer value }}
+% | e1 + e2 :: :: plus {{ com plus }}
+  | int     :: :: int  {{ com integer type }}
+  | e1 e2   :: :: app  {{ com application }}
+  | lambda x : A . e :: :: abs  (+ bind x in e +) {{ com abstraction }}
+  | pi     x : A . B :: :: pi   (+ bind x in B +) {{ com dependent product }}
+  | forall x : A . B :: :: all  (+ bind x in B +) {{ com implicit function type }}
+  | bind   x : A . e :: :: bind (+ bind x in e +) {{ com implicit lambda }}
+  | mu     x : A . e :: :: mu   (+ bind x in e +) {{ com fix point expression }}
+  | castup [ A ] e   :: :: castup {{ com cast up }}
+  | castdn       e   :: :: castdn {{ com cast down }}
+  | ( e )         :: S :: paren {{ coq ([[e]]) }}
+  | [ e1 / x ] e2 :: M :: subst {{ coq (open_expr_wrt_expr [[x e2]] [[e1]]) }}
+
+context, G {{ tex \Gamma }} :: 'ctx_' ::=
+  {{ com contexts }} {{ coq (list (exprvar * expr)) }}
+  | nil       :: :: nil  {{ com empty context }}   {{ coq nil }}
+  | G , x : A :: :: cons
+    {{ com context binding }} {{ coq (([[x]], [[A]]) :: [[G]]) }}
+  | G1 ,, G2  :: S :: app
+    {{ com context concatenation }} {{ coq (app ([[G2]]) ([[G1]])) }} {{ tex [[G1]] , \, [[G2]] }}
+  | [ e / x ] G :: M :: subst
+    {{ com context substitution }} {{ coq (subst_ctx ([[e]]) [[x]] ([[G]])) }}
+
+eexpr, ee {{tex E}}, eA {{tex A}}, eB {{tex B}}, eC {{tex C}} :: 'ee_' ::= {{ com extracted expression }}
+  | x   :: :: var
+  | k   :: :: kind
+  | n   :: :: num
+  | int :: :: int
+  | ee1 ee2 :: :: app
+  | elambda x . ee :: :: abs  (+ bind x in ee +)
+  | ebind   x . ee :: :: bind (+ bind x in ee +)
+  | emu     x . ee :: :: mu   (+ bind x in ee +)
+  | epi     x : eA . eB :: :: pi  (+ bind x in eB +)
+  | eforall x : eA . eB :: :: all (+ bind x in eB +)
+  | ecastup ee :: :: castup
+  | ecastdn ee :: :: castdn
+  | ( ee )          :: S :: paren {{ coq ([[ee]]) }}
+  | [ ee1 / x ] ee2 :: M :: subst {{ coq (open_eexpr_wrt_eexpr [[x ee2]] [[ee1]]) }}
+
+formula :: formula_ ::=
+  | judgement  ::   :: judgement
+  % a trick to combine with sed script for tex generation
+  % to put several premises on the same line
+  | formula << :: M :: redundant
+     {{ coq [[formula]] }} {{ tex \colorbox{gray!40}{$ \displaystyle [[formula]] $} }}
+  | x : A in G :: M :: binding   {{ coq (binds [[x]] [[A]] [[G]]) }}
+  | G |- e : A :: M :: typing    {{ coq (usub [[G]] [[e]] [[e]] [[A]]) }}
+  | x # G      :: M :: ctx_fresh {{ coq ([[x]] `notin` dom [[G]]) }}
+  | x # e *    :: M :: exp_fresh
+    {{ coq ([[x]] `notin` fv_eexpr (extract [[e]])) }}
+    {{ tex [[x]] ~ \text{fresh in} ~ \lvert [[e]] \rvert }}
+  | G |= e : A :: M :: styping {{ coq susub [[G]] [[e]] [[e]] [[A]] }}
+
+terminals :: 'terminal_' ::=
+  | lambda :: :: lambda {{ tex \lambda }}
+  | forall :: :: forall {{ tex \forall }}
+  | bind   :: :: bind   {{ tex \Lambda }}
+  | pi :: :: pi    {{ tex \Pi }}
+  | mu :: :: mu    {{ tex \mu }}
+  | in :: :: in    {{ tex \in }}
+  | |- :: :: vdash {{ tex \vdash }}
+  | .  :: :: dot   {{ tex . ~ }}
+  | <: :: :: sub   {{ tex \leq }}
+  | #  :: :: fresh {{ tex ~\text{fresh in}~ }}
+  | *  :: :: star  {{ tex \star }}
+  | box :: :: box  {{ tex \square }}
+  | ,  :: :: comma {{ tex , \, }}
+  | elambda :: :: elambda {{ tex \lambda }}
+  | epi     :: :: epi     {{ tex \Pi }}
+  | eforall :: :: eforall {{ tex \forall }}
+  | ebind   :: :: ebind   {{ tex \Lambda }}
+  | emu     :: :: emu     {{ tex \mu }}
+  | -->  :: :: reduce  {{ tex \longrightarrow }}
+  | ==>  :: :: dreduce {{ tex \longrightarrow_D \,}}
+  | *--> :: :: ereduce {{ tex \longrightarrow_E \,}}
+  | nil  :: :: nil {{ tex \varnothing }}
+  | int  :: :: int {{ tex \mathbb{N} }}
+  | |=   :: :: vDash {{ tex \vdash_s }}
+  | ]    :: :: rbracket {{ tex ] \, }}
+  | castup :: :: castup {{ tex \mathrm{cast}_\Uparrow   }}
+  | castdn :: :: castdn {{ tex \mathrm{cast}_\Downarrow }}
+  | ecastup :: :: ecastup {{ tex \mathrm{cast}_\Uparrow }}
+  | ecastdn :: :: ecastdn {{ tex \mathrm{cast}_\Downarrow }}
+
+substitutions
+  single e  x :: subst
+  single ee x :: subst
+
+freevars
+  expr  x :: fv
+  eexpr x :: fv
+
+embed {{ coq
+Fixpoint extract (e : expr) : eexpr :=
+  match e with
+  | e_var_b n => ee_var_b n
+  | e_var_f x => ee_var_f x
+  | e_kind k  => ee_kind k
+  | e_num n   => ee_num n
+  | e_int     => ee_int
+  | e_app  f a => ee_app  (extract f) (extract a)
+  | e_abs  A b => ee_abs  (extract b)
+  | e_bind A b => ee_bind (extract b)
+  | e_mu   A b => ee_mu   (extract b)
+  | e_pi   A B => ee_pi   (extract A) (extract B)
+  | e_all  A B => ee_all  (extract A) (extract B)
+  | e_castup A e => ee_castup (extract e)
+  | e_castdn   e => ee_castdn (extract e)
+  end
+.
+}} % embed coq
+
+defns
+MonoType :: '' ::=
+
+defn
+monotype A :: :: mono_type :: 'mono_'
+  {{ tex [[A]] ~ \mathbf{mono} }}
+  {{ com mono-types (mono-values) }}
+by
+
+----------- :: kind
+monotype k
+
+----------- :: var
+monotype x
+
+------------- :: int
+monotype int
+
+----------- :: lit
+monotype n
+
+monotype e1
+monotype e2
+----------------- :: app
+monotype (e1 e2)
+
+monotype A
+monotype B
+---------------------- :: pi
+monotype pi x : A . B
+
+monotype A
+monotype B
+-------------------------- :: lambda
+monotype lambda x : A . B
+
+monotype A
+monotype B
+------------------------ :: bind
+monotype bind x : A . B
+
+monotype A
+monotype e
+---------------------- :: mu
+monotype mu x : A . e
+
+monotype A
+monotype e
+---------------------- :: castup
+monotype castup [A] e
+
+monotype B
+monotype e
+---------------------- :: castdn
+monotype castdn e
+
+
+defns
+Value :: '' ::=
+
+defn
+value e :: :: value :: 'v_'
+  {{ tex [[e]] ~ \mathbf{value} }}
+  {{ com values in source language }}
+by
+
+--------- :: kind
+value k
+
+--------- :: num
+value n
+
+--------- :: int
+value int
+
+---------------------- :: abs
+value lambda x : A. e
+
+---------------------- :: bind
+value bind   x : A. e
+
+---------------------- :: pi
+value pi     x : A. B
+
+---------------------- :: all
+value forall x : A. B
+
+------------------- :: castup
+value castup [A] e
+
+defns
+Reduce :: '' ::=
+
+defn
+e1 --> e2 :: :: reduce :: 'r_' {{ com Reduction in Source Language }}
+
+by
+e1 --> e2
+---------------- :: app
+e1 e3 --> e2 e3
+
+-------------------------------------- :: beta
+(lambda x : A. e1) e2 --> [e2 / x] e1
+
+monotype e
+--------------------------------------- :: inst
+(bind x : A. e1) e2 --> ([e / x] e1) e2
+
+-------------------------------------- :: mu
+mu x : A. e --> [mu x : A. e / x] e
+
+e1 --> e2
+-------------------------------- :: castdn
+castdn e1 --> castdn e2
+
+monotype e
+-------------------------------------------------------- :: cast_inst
+castdn (bind x : B. e1) --> castdn ([e / x] e1)
+
+-------------------------------- :: cast_elim
+castdn (castup [B] e) --> e
+
+defns
+DeterministicReduce :: '' ::=
+
+defn
+e1 ==> e2 :: :: dreduce :: 'dr_' {{ com Deterministic Reduction }}
+by
+
+e1 ==> e2
+---------------- :: app
+e1 e3 ==> e2 e3
+
+-------------------------------------- :: beta
+(lambda x : A. e1) e2 ==> [e2 / x] e1
+
+------------------------------------ :: mu
+mu x : A. e ==> [mu x : A. e / x] e
+
+defns
+ExtractedValue :: '' ::=
+
+defn
+evalue ee :: :: evalue :: 'ev_'
+  {{ tex [[ee]] ~ \mathbf{value} }}
+  {{ com Values in Extracted Language }}
+by
+
+---------- :: kind
+evalue k
+
+---------- :: num
+evalue n
+
+---------- :: int
+evalue int
+
+--------------------- :: abs
+evalue elambda x. ee
+
+--------------------- :: bind
+evalue ebind   x. ee
+
+-------------------------- :: pi
+evalue epi     x : eA. eB
+
+-------------------------- :: all
+evalue eforall x : eA. eB
+
+------------------ :: castup
+evalue ecastup ee
+
+defns
+ExtractedReduce :: '' ::=
+
+defn
+ee1 *--> ee2 :: :: ereduce :: 'er_' {{ com Reduction in Extracted Language}}
+by
+
+ee1 *--> ee2
+--------------------- :: app
+ee1 ee3 *--> ee2 ee3
+
+---------------------------------------- :: beta
+(elambda x. ee1) ee2 *--> [ee2 / x] ee1
+
+-------------------------------- :: elim
+(ebind x. ee1) ee2 *--> ee1 ee2
+
+-------------------------------- :: mu
+emu x . ee *--> [emu x. ee / x] ee
+
+ee1 *--> ee2
+-------------------------------- :: castdn
+ecastdn ee1 *--> ecastdn ee2
+
+-------------------------------------- :: cast_inst
+ecastdn (ebind x. ee) *--> ecastdn ee
+
+-------------------------------- :: cast_elim
+ecastdn (ecastup ee) *--> ee
+
+
+defns
+UnifiedSubtyping :: '' ::=
+
+defn
+|- G :: :: wf_context :: 'wf_' {{ com Context Wellformedness }}
+by
+
+------ :: nil
+|- nil
+
+|- G
+x # G
+G |- A : k
+------------ :: cons
+|- G , x : A
+
+defn
+G |- e1 <: e2 : A :: :: usub :: 's_' {{ com Unified Subtyping }}
+by
+
+|- G
+x : A in G
+------------------- :: var
+G |- x <: x : A
+
+|- G
+------------------- :: lit
+G |- n <: n : int
+
+|- G
+------------------- :: star
+G |- * <: * : box
+
+|- G
+------------------- :: int
+G |- int <: int : *
+
+G |- A : k1 <<
+G , x : A |- B : k2
+G , x : A |- e1 <: e2 : B
+------------------------------------------------------- :: abs
+G |- lambda x : A. e1 <: lambda x : A. e2 : pi x : A. B
+
+% G |- A1 : k1 <<
+% G |- A2 : k1 <<
+G |- A2 <: A1 : k1
+G , x : A1 |- B1 : k2
+G , x : A2 |- B1 <: B2 : k2
+---------------------------------------- :: pi
+G |- pi x : A1. B1 <: pi x : A2. B2 : k2
+
+monotype t
+G |- t : A
+G |- e1 <: e2 : pi x : A. B
+------------------------------- :: app
+G |- e1 t <: e2 t : [t/x]B
+
+G |- A : k <<
+G , x : A |- B : *
+G , x : A |- e1 <: e2 : B
+x # e1*
+x # e2*
+------------------------------------------------------- :: bind
+G |- bind x : A. e1 <: bind x : A. e2 : forall x : A. B
+
+monotype mu x : t. s
+G |- t : k <<
+G , x : t |- s : t
+------------------------------------ :: mu
+G |- mu x : t. s <: mu x : t. s : t
+
+G |- A : k
+A --> B
+G |- e1 <: e2 : B
+--------------------------------------- :: castup
+G |- castup [A] e1 <: castup [A] e2 : A
+
+G |- B : k
+A --> B
+G |- e1 <: e2 : A
+--------------------------------------- :: castdn
+G |- castdn e1 <: castdn e2 : B
+
+monotype t
+G |- A : k <<
+G |- t : A
+G |- [t/x] B <: C : *
+G , x : A |- B : *
+------------------------------- :: forall_l
+G |- forall x : A. B <: C : *
+
+G |- B : k <<
+G |- A : *
+G , x : B |- A <: C : *
+------------------------------- :: forall_r
+G |- A <: forall x : B. C : *
+
+G |- A : k <<
+G , x : A |- B <: C : *
+-------------------------------------------- :: forall
+G |- forall x : A. B <: forall x : A. C : *
+
+G |- e1 <: e2 : A
+G |- A  <: B  : k
+------------------ :: sub
+G |- e1 <: e2 : B
+
+defns
+SimplifiedUnifiedSubtyping :: '' ::=
+
+defn
+|= G :: :: swf_context :: 'swf_' {{ com Context Wellformedness (Simplified Version) }}
+by
+
+------ :: nil
+|= nil
+
+|= G
+x # G
+G |= A : k
+------------ :: cons
+|= G , x : A
+
+defn
+G |= e1 <: e2 : A :: :: susub :: 'ss_' {{ com Unified Subtyping (Simplified Version) }}
+by
+
+|= G
+x : A in G
+------------------- :: var
+G |= x <: x : A
+
+|= G
+------------------- :: lit
+G |= n <: n : int
+
+|= G
+------------------- :: star
+G |= * <: * : box
+
+|= G
+------------------- :: int
+G |= int <: int : *
+
+% G |= A : k1
+G , x : A |= B : k2
+G , x : A |= e1 <: e2 : B
+------------------------------------------------------- :: abs
+G |= lambda x : A. e1 <: lambda x : A. e2 : pi x : A. B
+
+% G |= A1 : k1
+% G |= A2 : k1
+G |= A2 <: A1 : k1
+G , x : A1 |= B1 : k2
+G , x : A2 |= B1 <: B2 : k2
+---------------------------------------- :: pi
+G |= pi x : A1. B1 <: pi x : A2. B2 : k2
+
+monotype e
+G |= e : A
+G |= e1 <: e2 : pi x : A. B
+------------------------------- :: app
+G |= e1 e <: e2 e : [e/x]B
+
+% G |= A : k
+G , x : A |= B : *
+G , x : A |= e1 <: e2 : B
+x # e1*
+x # e2*
+------------------------------------------------------- :: bind
+G |= bind x : A. e1 <: bind x : A. e2 : forall x : A. B
+
+monotype mu x : A. e
+G , x : A |= e : A
+------------------------------------ :: mu
+G |= mu x : A. e <: mu x : A. e : A
+
+G |= A : k
+A ==> B
+G |= e1 <: e2 : B
+--------------------------------------- :: castup
+G |= castup [A] e1 <: castup [A] e2 : A
+
+G |= B : k
+A ==> B
+G |= e1 <: e2 : A
+-------------------------------- :: castdn
+G |= castdn e1 <: castdn e2 : B
+
+monotype e
+% G |= A : k
+G |= e : A
+G |= [e/x] B <: C : *
+G , x : A |= B : *
+------------------------------- :: forall_l
+G |= forall x : A. B <: C : *
+
+% G |= B : k
+G |= A : *
+G , x : B |= A <: C : *
+------------------------------- :: forall_r
+G |= A <: forall x : B. C : *
+
+% G |= A : k
+G , x : A |= B <: C : *
+-------------------------------------------- :: forall
+G |= forall x : A. B <: forall x : A. C : *
+
+G |= e1 <: e2 : A
+G |= A  <: B  : k
+------------------ :: sub
+G |= e1 <: e2 : B

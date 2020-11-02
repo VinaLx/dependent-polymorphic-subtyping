@@ -1,0 +1,16 @@
+-R src/proofs Declarative
+src/proofs/Language.v
+src/proofs/DKDeclarative.v
+src/proofs/BasicProperties.v
+src/proofs/FSetReasoning.v
+src/proofs/SimplifiedLanguage.v
+src/proofs/BoxReasoning.v
+src/proofs/LanguageUtil.v
+src/proofs/Extraction.v
+src/proofs/Properties.v
+src/proofs/Transitivity.v
+src/proofs/KindUniqueness.v
+src/proofs/KindProperties.v
+src/proofs/DKSubsumption.v
+src/proofs/OccurenceReasoning.v
+src/proofs/Semantics.v

@@ -1,0 +1,11 @@
+.DS_Store
+
+# coq object files
+*.vo
+*.glob
+*.aux
+
+# coq makefile
+CoqMakefile*
+.coqdeps.d
+

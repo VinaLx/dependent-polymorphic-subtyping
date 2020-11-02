@@ -1,0 +1,139 @@
+metavar tpvar, x, y, z ::= {{ com variables }} {{ repr-locally-nameless }}
+
+grammar
+
+type, A, B, C :: 't_' ::= {{ com types }}
+  | x   :: :: var {{ com variable }}
+  | int :: :: int {{ com integer type }}
+  | forall x . A :: :: all (+ bind x in A +) {{ com polymorphic types }}
+  | A -> B       :: :: arrow {{ com function types }}
+  | ( A )       :: S :: paren {{ coq [[A]] }}
+  | [ B / x ] A :: M :: subst {{ coq (open_type_wrt_type [[x A]] [[B]]) }}
+
+dkcontext, G {{ tex \Gamma }} :: 'ctx_' ::=
+  {{ com contexts }} {{ coq (list tpvar) }}
+  | nil   :: :: nil {{ com empty context }} {{ coq nil }}
+  | G , x :: :: cons {{ coq ([[x]] :: [[G]]) }}
+
+formula :: formula_ ::=
+  | judgement :: :: judgement
+  | formula ,, :: M :: cont {{ coq [[formula]] }}
+  | x in G :: M :: binding {{ coq (In [[x]] [[G]]) }}
+  | x #  G :: M :: fresh   {{ coq (not (In [[x]] [[G]])) }}
+
+terminals :: 'terminal_' ::=
+  | ->     :: :: arrow  {{ tex \rightarrow }}
+  | forall :: :: forall {{ tex \forall }}
+  | |-     :: :: vdash  {{ tex \vdash }}
+  | <:     :: :: sub    {{ tex \leq }}
+  | ,      :: :: comma  {{ tex ,~ }}
+  | nil    :: :: nil    {{ tex \varnothing }}
+  | int    :: :: int    {{ tex \mathbb{N} }}
+  | ]      :: :: rbracket {{ tex ]~ }}
+
+substitutions
+  single A x :: subst
+
+freevars
+  type x :: fv
+
+embed {{ coq
+Fixpoint ctx_dom (c : list tpvar) :=
+  match c with
+  | nil => empty
+  | x :: c' => add x (ctx_dom c')
+  end
+.
+}}
+
+
+defns
+Monotype :: '' ::=
+
+defn
+monotype A :: :: dk_mono :: 'dkm_'
+  {{ tex [[A]] ~ \mathbf{mono} }}
+  {{ com mono-types }}
+by
+
+------------- :: var
+monotype x
+
+------------- :: int
+monotype int
+
+monotype A
+monotype B
+---------------- :: arrow
+monotype A -> B
+
+defns
+WellformedContext :: '' ::=
+
+defn
+|- G :: :: dk_wf_ctx :: 'wf_ctx_'
+by
+
+------- :: nil
+|- nil
+
+|- G ,,
+x # G
+--------- :: cons
+|- G , x
+
+defns
+WellformedType :: '' ::=
+
+defn
+G |- A :: :: dk_wf_tp :: 'wf_tp_'
+by
+
+|- G ,,
+x in G
+------- :: var
+G |- x
+
+|- G
+--------- :: int
+G |- int
+
+G |- A ,,
+G |- B
+------------ :: arrow
+G |- A -> B
+
+G , x |- A
+------------------ :: all
+G |- forall x . A
+
+defns
+Subtyping :: '' ::=
+
+defn
+G |- A <: B :: :: dk_sub :: 'dks_'
+by
+
+|- G ,,
+x in G
+------------ :: var
+G |- x <: x
+
+|- G
+---------------- :: int
+G |- int <: int
+
+G |- B1 <: A1 ,,
+G |- A2 <: B2
+-------------------------- :: arrow
+G |- A1 -> A2 <: B1 -> B2
+
+G |- C
+monotype C
+G |- [C / x] A <: B
+---------------------- :: forall_l
+G |- forall x. A <: B
+
+G , x |- A <: B
+---------------------- :: forall_r
+G |- A <: forall x. B
