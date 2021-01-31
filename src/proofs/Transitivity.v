@@ -265,8 +265,8 @@ Proof.
     + inversion H. subst. pick fresh x'' and apply mono_mu. auto.
       autorewrite with assoc; auto 3.
     + assoc_goal_and_apply H1. eapply wf_cons; eauto.
-  - eauto using reduce_subst.
-  - eauto using reduce_subst.
+  - eauto using reduction_substitution.
+  - eauto using reduction_substitution.
   - apply ss_forall_l with
       (add x (add x' L) `union` dom (Γ1 , x' : A ,, [`x' // x] Γ2)) ([`x' / x] e) k; eauto.
     + rewrite <- subst_open_distr; eauto.
@@ -789,7 +789,7 @@ Corollary sized_narrowing : forall Γ x A B k e1 e2 T n1 n2,
 Proof.
   intros.
   apply unsized_sized.
-  apply ctx_narrowing_cons with A k; eauto.
+  apply context_narrowing_cons with A k; eauto.
 Qed.
 
 Ltac solve_with_IHesz :=
@@ -863,7 +863,7 @@ Ltac solve_by_case_analysis :=
   end
 .
 
-Theorem transitivity' : forall order esz tsz,
+Theorem generalized_transitivity : forall order esz tsz,
     forall Γ e1 e2 e3 A B n1 n2,
       forall_order e1 + forall_order e2 + forall_order e3 <= order ->
       esize e1 + esize e3 <= esz ->
@@ -886,7 +886,7 @@ Proof.
   intros.
   apply unsized_sized in H as (n1 & Hl).
   apply unsized_sized in H0 as (n2 & Hr).
-  apply transitivity' with
+  apply generalized_transitivity with
       (forall_order e1 + forall_order e2 + forall_order e3)
       (esize e1 + esize e3) (n1 + n2) e2 B n1 n2; eauto.
 Qed.

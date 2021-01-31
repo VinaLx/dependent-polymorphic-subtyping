@@ -101,7 +101,7 @@ Proof.
   now apply weakening.
 Qed.
 
-Theorem ctx_narrowing : forall Γ1 Γ2 x A B C e1 e2 k,
+Theorem context_narrowing : forall Γ1 Γ2 x A B C e1 e2 k,
   Γ1 , x : B ,, Γ2 ⊢ e1 <: e2 : C ->
   Γ1 ⊢ A <: B : e_kind k ->
   Γ1 , x : A ,, Γ2 ⊢ e1 <: e2 : C.
@@ -147,12 +147,12 @@ Proof with autorewrite with assoc; eauto 3.
   - assumption.
 Qed.
 
-Corollary ctx_narrowing_cons : forall Γ1 x A B C e1 e2 k,
+Corollary context_narrowing_cons : forall Γ1 x A B C e1 e2 k,
     Γ1 , x : A ⊢ e1 <: e2 : C ->
     Γ1 ⊢ B <: A : e_kind k ->
     Γ1, x : B ⊢ e1 <: e2 : C.
 Proof.
   intros.
   replace (Γ1 , x : B) with (Γ1 ,, x ~ B ,, nil) by reflexivity.
-  apply ctx_narrowing with A k; auto.
+  apply context_narrowing with A k; auto.
 Qed.

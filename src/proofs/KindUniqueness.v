@@ -52,7 +52,7 @@ Qed.
 
 
 Corollary gen_kind_uniqueness : forall Γ e A k,
-    Γ ⊢ e : (e_kind k) -> Γ ⊢ e : A -> A = e_kind k.
+    Γ ⊢ e : e_kind k -> Γ ⊢ e : A -> A = e_kind k.
 Proof.
   intros.  assert (head_kind A k 0).
   apply gen_head_kind_uniqueness with Γ e (e_kind k); eauto.

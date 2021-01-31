@@ -23,20 +23,22 @@ The formalizations are all located in directory `./src/proofs/`
 | `reflexivity_l`                     | Left Reflexivity                                          | BasicProperties.v    |
 | `reflexivity_r`                     | Right Reflexivity                                         | BasicProperties.v    |
 | `weakening`                         | Weakening                                                 | BasicProperties.v    |
-| `ctx_narrowing`                     | Context Narrowing                                         | BasicProperties.v    |
-| `reduce_subst`                      | Reduction Substitution                                    | Properties.v         |
+| `context_narrowing`                 | Context Narrowing                                         | BasicProperties.v    |
+| `reduction_substitution`            | Reduction Substitution                                    | Properties.v         |
 | `substitution`                      | Substitution                                              | Properties.v         |
 | `type_correctness`                  | Type Correctness                                          | Properties.v         |
 | `gen_kind_uniqueness`               | Kind Uniqueness                                           | KindUniqueness.v     |
-| `transitivity'`                     | Generalized Transitivity                                  | Transitivity.v       |
+| `generalized_transitivity`          | Generalized Transitivity                                  | Transitivity.v       |
 | `transitivity`                      | Transitivity                                              | Transitivity.v       |
-| `irreducible_value`                 | Reducible Type                                            | Semantics.v          |
+| `reducible_type`                    | Reducible Type                                            | Semantics.v          |
+| `generalized_progress`              | Generalized Progress                                      | Semantics.v          |
 | `progress`                          | Progress                                                  | Semantics.v          |
+| `generalized_erased_progress`       | Generalized Progress on erased expression                 | Semantics.v          |
 | `extracted_progress`                | Progress on erased expression                             | Semantics.v          |
 | `deterministic_type_reduction`      | Deterministic Type Reduction                              | Semantics.v          |
-| `type preservation`                 | Subtype Preservation for Types                            | Semantics.v          |
-| `dreduce_deterministic`             | Deterministic Reduction                                   | Semantics.v          |
-| `deterministic_extracted_reduction` |                                                           | Semantics.v          |
+| `type_preservation`                 | Subtype Preservation for Types                            | Semantics.v          |
+| `deterministic_reduction`           | Deterministic Reduction                                   | Semantics.v          |
+| `deterministic_erased_reduction`    |                                                           | Semantics.v          |
 | `expr_of_box_never_be_reduced`      | Expressions of kind $\square$ are never reduced           | Semantics.v          |
 | `preservation`                      | Subtype Preservation                                      | Semantics.v          |
 | `value_evalue`                      | Value to Erased Value                                     | Extraction.v         |

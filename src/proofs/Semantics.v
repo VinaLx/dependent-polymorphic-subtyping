@@ -31,7 +31,7 @@ Ltac find_impossible_reduction :=
 
 Ltac solve_impossible_reduction := try find_impossible_reduction.
 
-Lemma dreduce_deterministic : forall e e1 e2,
+Lemma deterministic_reduction : forall e e1 e2,
     e ⟹ e1 -> e ⟹ e2 -> e1 = e2.
 Proof.
   intros. generalize dependent e2.
@@ -293,7 +293,7 @@ Proof.
         pick fresh x for (L3 `union` L2 `union` fv_expr b `union` fv_expr e0 `union` fv_expr B).
         instantiate_cofinites.
         rewrite (open_subst_eq b x t), (open_subst_eq e0 x t), (open_subst_eq B x t); auto.
-        eauto 4 using substitution_cons, ctx_narrowing_cons.
+        eauto 4 using substitution_cons, context_narrowing_cons.
   - inversion R1; inversion R2; subst.
     assert (G ⊢ e_mu t s : t) by eauto.
     instantiate_cofinites. conclude_freshes. rewrite_open_with_subst.
@@ -483,7 +483,7 @@ Proof.
 Qed.
 
 
-Lemma irreducible_value : forall Γ e A B,
+Lemma reducible_type : forall Γ e A B,
     Γ ⊢ e : A -> A ⟶ B -> not (is_castup e) -> not (is_bind e) -> value e -> False.
 Proof.
   intros * Sub R H1 H2 V.
@@ -502,7 +502,7 @@ Proof.
   - contradict H1. simpl. auto.
 Qed.
 
-Theorem progress : forall e1 e2 A,
+Theorem generalized_progress : forall e1 e2 A,
     nil ⊢ e1 <: e2 : A -> Progressive e1 /\ Progressive e2.
 Proof.
   intros.
@@ -532,7 +532,7 @@ Proof.
         -- apply is_bind_eq in H6; destruct_conjs; subst;
            eauto. Unshelve. exact 0.
         -- apply reflexivity_l in H1.
-           eapply irreducible_value in H1; [easy | eauto..].
+           eapply reducible_type in H1; [easy | eauto..].
       * destruct H2. eauto.
     + destruct H3.
       * destruct (is_castup_dec e2), (is_bind_dec e2).
@@ -541,9 +541,17 @@ Proof.
         -- apply is_bind_eq in H6; destruct_conjs; subst; eauto.
            Unshelve. exact 0.
         -- apply reflexivity_r in H1.
-           eapply irreducible_value in H1; [easy | eauto..].
+           eapply reducible_type in H1; [easy | eauto..].
       * destruct H3. eauto.
 Qed.
+
+Corollary progress : forall e A,
+    nil ⊢ e : A -> Progressive e.
+Proof.
+  intros. apply generalized_progress in H.
+  now destruct H.
+Qed.
+
 
 Ltac solve_progress_evalue := auto || left; solve_evalue.
 
@@ -554,7 +562,7 @@ Proof.
 Qed.
 
 
-Theorem extracted_progress : forall e1 e2 A,
+Theorem generalized_erased_progress : forall e1 e2 A,
     nil ⊢ e1 <: e2 : A -> forall e1' e2', extract e1 = e1' -> extract e2 = e2' ->
     EProgressive e1' /\ EProgressive e2'.
 Proof.
@@ -604,7 +612,7 @@ Proof.
            replace (ee_bind (extract e1')) with (extract (e_bind C e1')) by reflexivity.
            eauto using lc_extract_lc. auto.
         -- apply reflexivity_l in H1.
-           eapply irreducible_value in H1; [easy | eauto..].
+           eapply reducible_type in H1; [easy | eauto..].
       * destruct H2; eauto.
     + destruct H3.
       * apply evalue_value in H3; auto.
@@ -619,7 +627,7 @@ Proof.
            replace (ee_bind (extract e1')) with (extract (e_bind C e1')) by reflexivity.
            eauto using lc_extract_lc. auto.
         -- apply reflexivity_r in H1.
-           eapply irreducible_value in H1; [easy | eauto..].
+           eapply reducible_type in H1; [easy | eauto..].
       * destruct H3; eauto.
   (* forall_l *)
   - split.
@@ -631,6 +639,15 @@ Proof.
     + instantiate_trivial_equals.
       now destruct IHusub2 with (extract A) (extract A).
     + solve_progress_evalue.
+Qed.
+
+Corollary erased_progress : forall e A,
+    nil ⊢ e : A -> EProgressive (extract e).
+Proof.
+  intros.
+  apply generalized_erased_progress
+    with (e1' := extract e) (e2' := extract e) in H.
+  destruct H. all: auto.
 Qed.
 
 Lemma bind_extraction_inversion : forall e ee,
@@ -806,7 +823,7 @@ Proof.
   - eapply deterministic_type_reduction; eauto.
 Qed.
 
-Lemma deterministic_extracted_reduction : forall e e1 e2,
+Lemma deterministic_erased_reduction : forall e e1 e2,
     extract e ⋆⟶ e1 -> extract e ⋆⟶ e2 ->
     forall Γ A, Γ ⊢ e : A -> e1 = e2.
 Proof.
@@ -873,7 +890,7 @@ Proof.
            (L `union` L' `union` fv_expr e `union` fv_expr b `union` fv_expr B).
       instantiate_cofinites. destruct_pairs.
       rewrite_open_with_subst.
-      eapply ctx_narrowing_cons in Sub4; eauto 4 using substitution_cons.
+      eapply context_narrowing_cons in Sub4; eauto 4 using substitution_cons.
     + invert_extractions. invert_sub_hyp.
       inversion H1; subst; solve_impossible_reduction.
       (* main case for r_inst *)
