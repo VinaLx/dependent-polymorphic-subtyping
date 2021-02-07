@@ -4,6 +4,7 @@
 
 - [The Coq Proof Assistant](https://coq.inria.fr/) (tested with version 8.10.2)
 - [ott](https://github.com/ott-lang/ott) (version 0.30, generating locally nameless representation from a language specification)
+- [coq-ott](https://github.com/ott-lang/ott/blob/master/coq-ott.opam) (version 0.30, a library required by ott to generate coq definitions)
 - [metalib](https://github.com/plclub/metalib) (library supporting the locally nameless representation for ott)
 
 ## Build
