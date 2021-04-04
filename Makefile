@@ -30,6 +30,7 @@ ${COQ_PROJECT} : ${OTT_COQ_OUTS} ${COQ_SOURCES}
 src/proofs/%.v : src/ott/%.ott
 	@echo "MAKE: Generating rules for coq by ott"
 	@ott -o $@ $^
+	@sed -e "/Ott\.ott_list_core/d" -i "" $@
 
 ${COQ_MAKEFILE} : ${COQ_PROJECT} ${COQ_SOURCES} ${OTT_COQ_OUTS}
 	@echo MAKE: Generating ${COQ_MAKEFILE}

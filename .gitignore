@@ -4,6 +4,8 @@
 *.vo
 *.glob
 *.aux
+*.vok
+*.vos
 
 # coq makefile
 CoqMakefile*
