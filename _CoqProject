@@ -1,4 +1,6 @@
 -R src/proofs Declarative
+-arg -w
+-arg -deprecated-hint-without-locality,-omega-is-deprecated
 src/proofs/Language.v
 src/proofs/DKDeclarative.v
 src/proofs/BasicProperties.v
@@ -8,6 +10,7 @@ src/proofs/BoxReasoning.v
 src/proofs/LanguageUtil.v
 src/proofs/Extraction.v
 src/proofs/Properties.v
+src/proofs/Tactics.v
 src/proofs/Transitivity.v
 src/proofs/KindUniqueness.v
 src/proofs/KindProperties.v

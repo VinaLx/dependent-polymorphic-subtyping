@@ -13,6 +13,7 @@ expr, e, A, B, C, D, t {{ tex \tau }}, s {{ tex \sigma }} :: 'e_' ::= {{ com exp
   | n       :: :: num  {{ com integer value }}
 % | e1 + e2 :: :: plus {{ com plus }}
   | int     :: :: int  {{ com integer type }}
+  | bot : A :: :: bot  {{ com bottom value }}
   | e1 e2   :: :: app  {{ com application }}
   | lambda x : A . e :: :: abs  (+ bind x in e +) {{ com abstraction }}
   | pi     x : A . B :: :: pi   (+ bind x in B +) {{ com dependent product }}
@@ -38,7 +39,8 @@ eexpr, ee {{tex E}}, eA {{tex A}}, eB {{tex B}}, eC {{tex C}} :: 'ee_' ::= {{ co
   | x   :: :: var
   | k   :: :: kind
   | n   :: :: num
-  | int :: :: int
+  | int  :: :: int
+  | ebot :: :: bot
   | ee1 ee2 :: :: app
   | elambda x . ee :: :: abs  (+ bind x in ee +)
   | ebind   x . ee :: :: bind (+ bind x in ee +)
@@ -65,6 +67,8 @@ formula :: formula_ ::=
   | G |= e : A :: M :: styping {{ coq susub [[G]] [[e]] [[e]] [[A]] }}
 
 terminals :: 'terminal_' ::=
+  |  bot :: ::  bot {{ tex \bot }}
+  | ebot :: :: ebot {{ tex \bot }}
   | lambda :: :: lambda {{ tex \lambda }}
   | forall :: :: forall {{ tex \forall }}
   | bind   :: :: bind   {{ tex \Lambda }}
@@ -111,6 +115,7 @@ Fixpoint extract (e : expr) : eexpr :=
   | e_kind k  => ee_kind k
   | e_num n   => ee_num n
   | e_int     => ee_int
+  | e_bot  A  => ee_bot
   | e_app  f a => ee_app  (extract f) (extract a)
   | e_abs  A b => ee_abs  (extract b)
   | e_bind A b => ee_bind (extract b)
@@ -143,6 +148,10 @@ monotype int
 
 ----------- :: lit
 monotype n
+
+monotype A
+----------------- :: bot
+monotype bot : A
 
 monotype e1
 monotype e2
@@ -179,7 +188,6 @@ monotype e
 ---------------------- :: castdn
 monotype castdn e
 
-
 defns
 Value :: '' ::=
 
@@ -189,13 +197,13 @@ value e :: :: value :: 'v_'
   {{ com values in source language }}
 by
 
---------- :: kind
+---------- :: kind
 value k
 
---------- :: num
+---------- :: num
 value n
 
---------- :: int
+---------- :: int
 value int
 
 ---------------------- :: abs
@@ -271,13 +279,13 @@ evalue ee :: :: evalue :: 'ev_'
   {{ com Values in Extracted Language }}
 by
 
----------- :: kind
+------------ :: kind
 evalue k
 
----------- :: num
+------------ :: num
 evalue n
 
----------- :: int
+------------ :: int
 evalue int
 
 --------------------- :: abs
@@ -362,6 +370,10 @@ G |- * <: * : box
 |- G
 ------------------- :: int
 G |- int <: int : *
+
+G |- A : k
+---------------------------- :: bot
+G |- bot : A <: bot : A : A
 
 G |- A : k1 <<
 G , x : A |- B : k2
@@ -455,20 +467,24 @@ by
 
 |= G
 x : A in G
-------------------- :: var
+-------------------- :: var
 G |= x <: x : A
 
 |= G
-------------------- :: lit
+-------------------- :: lit
 G |= n <: n : int
 
 |= G
-------------------- :: star
+-------------------- :: star
 G |= * <: * : box
 
 |= G
-------------------- :: int
+-------------------- :: int
 G |= int <: int : *
+
+G |= A : k
+---------------------------- :: bot
+G |= bot : A <: bot : A : A
 
 % G |= A : k1
 G , x : A |= B : k2

@@ -6,12 +6,20 @@ Require Import BoxReasoning.
 Theorem gen_head_kind_uniqueness : forall Γ e A k,
     Γ ⊢ e : A -> forall n B, head_kind A k n -> Γ ⊢ e : B -> head_kind B k n.
 Proof.
-  intros Γ e A k Hsub.
-  dependent induction Hsub; intros n' B' Hk Hsubr.
+  intros * Hsub.
+  dependent induction Hsub; intros * Hk Hsubr.
+  (* var *)
   - eapply head_kind_var_consistent; eauto.
+  (* num *)
   - inversion Hk.
-  - apply star_type_inversion in Hsubr. subst. assumption.
-  - apply int_of_star in Hsubr. subst. assumption.
+  (* star *)
+  - now apply star_type_inversion in Hsubr as ->.
+  (* int *)
+  - now apply int_of_star in Hsubr as ->.
+  (* bot *)
+  - dependent induction Hsubr.
+    + auto.
+    + eauto 3 using head_kind_sub_r.
   - dependent induction Hsubr.
     + inversion Hk. subst. constructor. pick fresh x.
       eapply head_kind_invert_subst_var.
@@ -25,8 +33,8 @@ Proof.
       * destruct k.
         ++ eapply head_kind_star_of_box in Hsubr1; eauto 2. subst.
            now apply pi_box_impossible in Hsubr2.
-        ++ now apply head_kind_box_never_welltype with (n := n') in Hsubr1.
-      * assert (head_kind (e_pi A0 B0) k (S n')) by eauto 3.
+        ++ now apply head_kind_box_never_welltype with (n := n) in Hsubr1.
+      * assert (head_kind (e_pi A0 B0) k (S n)) by eauto 3.
         inversion H2. subst.
         now apply head_kind_subst.
     + eauto 3 using head_kind_sub_r.

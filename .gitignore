@@ -10,4 +10,4 @@
 # coq makefile
 CoqMakefile*
 .coqdeps.d
-
+.CoqMakefile.d

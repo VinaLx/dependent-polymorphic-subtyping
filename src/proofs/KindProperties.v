@@ -294,7 +294,7 @@ Proof.
   intros. now apply tail_kind_subst_rec.
 Qed.
 
-Hint Resolve tail_kind_subst_var : core.
+Hint Resolve tail_kind_subst_var : tail_kind.
 
 Lemma tail_box_never_welltype : forall Γ e A,
     Γ ⊢ e : A -> tail_kind e k_box -> False.
@@ -303,9 +303,11 @@ Proof.
   dependent induction Hsub; try solve [inversion Htk].
   - inversion Htk; subst.
     + now apply box_never_welltype in Hsub.
-    + pick fresh x. apply H2 with x; eauto.
+    + pick fresh x. eauto with tail_kind.
   - auto.
 Qed.
+
+Hint Resolve tail_box_never_welltype : tail_kind.
 
 Lemma open_is_kind_inversion : forall A e k n,
     e_kind k = A <n> ^^ e -> A = e_kind k \/ e = e_kind k.
@@ -335,21 +337,30 @@ Qed.
 Lemma tail_box_impossible : forall Γ e A,
     Γ ⊢ e : A -> tail_kind A k_box -> False.
 Proof.
-  intros Γ e A Hsub Htk.
+  intros * Hsub Htk.
   dependent induction Hsub; try solve [inversion Htk].
+  (* var *)
   - apply bind_type_welltype in H0 as [k Hsub]; auto.
     eapply tail_box_never_welltype; eauto.
+  (* bottom *)
+  - eauto with tail_kind.
+  (* lambda *)
   - inversion Htk; subst.
     + now apply box_never_welltype in Hsub.
-    + pick fresh x. eauto.
-  - apply tail_kind_invert_subst_rec in Htk as [Htk | [Htk | E]].
+    + pick fresh x. eauto with tail_kind.
+  (* app *)
+  - apply tail_kind_invert_subst_rec in Htk as [Htk | [Htk | E]]; subst.
     + auto.
     + apply tail_box_never_welltype with G t A; auto.
-    + subst. now apply box_never_welltype in Hsub1.
-  - pick fresh x. eapply H1; eauto.
+    + now apply box_never_welltype in Hsub1.
+  (* mu *)
+  - pick fresh x. eauto with tail_kind.
+  (* castup *)
   - eapply tail_box_never_reduce; eauto.
-  - eapply tail_box_never_welltype. exact Hsub1. assumption.
-  - apply reflexivity_r in Hsub2. eapply tail_box_never_welltype; eauto.
+  (* castdn *)
+  - eauto with tail_kind.
+  (* sub *)
+  - eauto with tail_kind.
 Qed.
 
 Lemma pi_box_impossible : forall Γ e1 e2 A,

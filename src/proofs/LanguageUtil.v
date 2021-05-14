@@ -285,13 +285,14 @@ Lemma open_rec_eq_cancel : forall e e1 e2 m n,
 Proof.
   induction e; simpl; intros; auto 3;
     try solve
-        [inversion H0 as [[Hinv1 Hinv2]];
-         (apply IHe1 in Hinv1; apply IHe2 in Hinv2); (auto 2 || congruence)].
+        [(inversion H0 as [[Hinv1 Hinv2]];
+          apply IHe1 in Hinv1; apply IHe2 in Hinv2) +
+           (inversion H0 as [[Hinv]]; apply IHe in Hinv);
+         (auto 2 || congruence)].
+  (* var *)
   - destruct (m == n).
     + destruct (n0 == n); congruence.
     + simpl in H0. destruct (n0 == n); easy.
-  - inversion H0 as [[Hinv1]].
-    apply IHe in Hinv1; (auto || congruence).
 Qed.
 
 Hint Resolve open_rec_eq_cancel : ln.
@@ -481,8 +482,14 @@ Ltac solve_basic_lc :=
   | H : _ ⊢ ?e <: _ : _ |- lc_expr ?e => apply usub_lc in H
   | H : _ ⊢ _ <: ?e : _ |- lc_expr ?e => apply usub_lc in H
   | H : _ ⊢ _ <: _ : ?e |- lc_expr ?e => apply usub_lc in H
-  | H : forall x, x `notin` ?L -> _, x : ?A ⊢ _ <: _ : _ |- lc_expr ?A =>
+  | H : forall x, x `notin` _ -> _, x : ?A ⊢ _ <: _ : _ |- lc_expr ?A =>
     instantiate_cofinite H; apply usub_lc in H; simpl in H
+  | H : forall x, x `notin` _ -> _ ⊢ ?e <: _ : _ |- lc_expr ?e =>
+    instantiate_cofinite H; apply usub_lc in H
+  | H : forall x, x `notin` _ -> _ ⊢ _ <: ?e : _ |- lc_expr ?e =>
+    instantiate_cofinite H; apply usub_lc in H
+  | H : forall x, x `notin` _ -> _ ⊢ _ <: _ : ?A |- lc_expr ?A =>
+    instantiate_cofinite H; apply usub_lc in H
   end; destruct_pairs; assumption
 .
 
@@ -639,7 +646,8 @@ Ltac gather_atoms_with_tactic F :=
 Ltac apply_fresh_base_fixed H gather_vars atom_name :=
   let L := gather_vars in
   let L := beautify_fset L in
-  pick fresh atom_name excluding L and apply H.
+  let x := fresh atom_name in
+  pick fresh x excluding L and apply H.
 
 Ltac discharge_equality E :=
   try solve [inversion E]; subst; try (rewrite E in *; clear E).

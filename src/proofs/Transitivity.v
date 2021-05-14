@@ -27,6 +27,9 @@ Inductive sized_usub : context -> expr -> expr -> expr -> nat -> Prop :=    (* d
  | ss_int : forall (G:context),
      ⊢ G ->
      G ⊢ e_int <: e_int : * | 0
+ | ss_bot : forall (G:context) (A : expr) (k : kind) n,
+     G ⊢ A <: A : e_kind k | n ->
+     G ⊢ e_bot A <: e_bot A : A | S n
  | ss_abs : forall (L:vars) (G:context) (A e1 e2 B:expr) (k1 k2:kind) n1 n2 n3,
      G ⊢ A <: A : e_kind k1 | n1 ->
      (forall x , x \notin L -> G , x : A ⊢ B ^` x <: B ^` x : e_kind k2 | n2) ->
@@ -96,15 +99,22 @@ Qed.
 
 Hint Resolve sized_unsized : core.
 
-Ltac distribute_sized_ctx :=
+(* Ltac assoc_ctx := *)
+(*   match goal with *)
+(*   | |- (?g1 ,, ?g2 , ?x : ?A) ⊢ _ <: _ : _ | _ => *)
+(*     replace (g1 ,, g2 , x : A) with *)
+(*       (g1 ,, (g2 , x : A)) by auto *)
+(*   end *)
+(* . *)
+
+Ltac assoc_ctx :=
   match goal with
-  | |- (?g1 ,, ?g2 , ?x : ?A) ⊢ _ <: _ : _ | _ =>
-    replace (g1 ,, g2 , x : A) with
-      (g1 ,, (g2 , x : A)) by auto
+  | |- context [_ ,, _ , _ : _] => rewrite ctx_app_cons_assoc
   end
 .
 
-Hint Extern 1 (_ ,, _ , _ : _ ⊢ _ <: _ : _ | _) => distribute_sized_ctx : core.
+Hint Extern 1 (_ ,, _ , _ : _ ⊢ _ <: _ : _ | _) => assoc_ctx : core.
+Hint Extern 1 (⊢ _ ,, (_ , _ : _)) => simpl : core.
 
 Ltac capture_wf_dom :=
     match goal with
@@ -113,7 +123,7 @@ Ltac capture_wf_dom :=
     end.
 
 Ltac solve_weakening_with IH :=
-  distribute_sized_ctx; apply IH; eauto 3; eapply wf_cons; eauto 4.
+  assoc_ctx; apply IH; eauto 3; eapply wf_cons; eauto 4.
 
 Theorem sized_weakening : forall Γ1 Γ2 Γ3 e1 e2 A n,
     Γ1 ,, Γ3 ⊢ e1 <: e2 : A | n ->
@@ -123,26 +133,20 @@ Proof.
   intros * Sub.
   generalize dependent Γ2.
   dependent induction Sub; intros; auto; capture_wf_dom.
-  - pick fresh x and apply ss_abs; eauto.
-    solve_weakening_with H0.
-    solve_weakening_with H2.
-  - pick fresh x and apply ss_pi; eauto.
+  (* bot *)
+  - eauto.
+  - pick fresh x and apply ss_abs; eauto 10.
+  - pick fresh x and apply ss_pi; eauto 3.
     solve_weakening_with H0.
     solve_weakening_with H2.
   - eauto.
-  - pick fresh x and apply ss_bind; eauto.
-    solve_weakening_with H0.
-    solve_weakening_with H2.
-  - pick fresh x and apply ss_mu; eauto.
-    solve_weakening_with H1.
+  - pick fresh x and apply ss_bind; eauto 10.
+  - pick fresh x and apply ss_mu; eauto 10.
   - eauto.
   - eauto.
-  - pick fresh x and apply ss_forall_l; eauto.
-    solve_weakening_with H1.
-  - pick fresh x and apply ss_forall_r; eauto.
-    solve_weakening_with H0.
-  - pick fresh x and apply ss_forall; eauto.
-    solve_weakening_with H0.
+  - pick fresh x and apply ss_forall_l; eauto 10.
+  - pick fresh x and apply ss_forall_r; eauto 10.
+  - pick fresh x and apply ss_forall; eauto 10.
   - eauto.
 Qed.
 
@@ -156,16 +160,9 @@ Proof.
   now apply sized_weakening.
 Qed.
 
-
-Ltac find_open_inequality_impl e :=
-  match e with
-  | context [([_ / ?x] _) ^` ?x'] => assert (x' <> x) by auto 2
-  end
-.
-
 Ltac find_open_inequality :=
   match goal with
-  | |- ?G => find_open_inequality_impl G
+  | |- context [([_ / ?x] _) ^` ?x'] => assert (x' <> x) by auto 2
   end
 .
 
@@ -189,19 +186,24 @@ Ltac redistribute_subst :=
   end
 .
 
-Ltac distribute_sized_ctx_for_subst :=
+Lemma ctx_subst_cons_distr: forall Γ x y A e,
+    [e // x] Γ, y : [e / x] A = [e // x] (Γ, y : A).
+Proof.
+  easy.
+Qed.
+
+
+Ltac assoc_ctx_for_subst :=
   match goal with
   | |- _ ,, [?e // ?x] ?Γ , ?x0 : [?e / ?x] ?A ⊢ _ <: _ : _ | _ =>
-    distribute_sized_ctx;
-    replace ([e // x] Γ , x0 : [e / x] A) with
-        ([e // x] (Γ , x0 : A)) by reflexivity
+    rewrite ctx_app_cons_assoc, ctx_subst_cons_distr
   end
 .
 
 Ltac assoc_goal :=
   try find_open_inequality;
   try redistribute_subst;
-  try distribute_sized_ctx_for_subst
+  try assoc_ctx_for_subst
 .
 
 Ltac assoc_goal_and_apply IH :=
@@ -226,6 +228,7 @@ Proof.
     + apply IHWf; eauto.
 Qed.
 
+
 Lemma sized_renaming : forall Γ1 x A Γ2 x' e1 e2 B n,
     Γ1, x : A,, Γ2 ⊢ e1 <: e2 : B | n ->
     ⊢ Γ1 , x' : A ,, [`x' // x] Γ2 ->
@@ -247,6 +250,7 @@ Proof.
         -- inversion H0; subst. eauto.
         -- inversion H; subst. inversion H1; subst.
            apply sized_weakening_cons; eauto.
+  - eauto.
   - pick_fresh_with_dom_and_apply ss_abs; eauto.
     + assoc_goal_and_apply H0. eapply wf_cons; eauto.
     + assoc_goal_and_apply H2. eapply wf_cons; eauto.
@@ -374,8 +378,6 @@ Ltac solve_unsized_sized_with H :=
   pick_fresh_with_dom_and_apply H; eauto;
   rewrite_for_rename; apply sized_renaming_cons; eauto.
 
-Set Ltac Backtrace.
-
 Hint Extern 1 (_, _ : _ ⊢ _ <: _ : _ | _) => rewrite_for_rename : sized.
 
 Ltac try_sized_constructors :=
@@ -421,7 +423,8 @@ Lemma unsized_sized : forall Γ e1 e2 A,
 Proof.
   intros.
   induction H; try solve_unsized_sized.
-  (* a little special for bind, for the strategy inappropriately instantiating freshness
+  (* a little special for bind,
+     for the strategy inappropriately instantiating freshness
      involving extracted expression *)
   - reconstruct_sub.
     instantiate_cofinite H0. instantiate_cofinite H1.
@@ -450,6 +453,7 @@ Fixpoint esize (e : expr) : nat :=
   | e_kind _ => 0
   | e_num _ => 0
   | e_int => 0
+  | e_bot A => S (esize A)
   | e_app  f a => S (esize f + esize a)
   | e_abs  A B => S (esize A + esize B)
   | e_pi   A B => S (esize A + esize B)
@@ -582,8 +586,6 @@ Ltac solve_left_subsumption_impl IH :=
 end end end
 .
 
-Ltac solve_left_subsumption :=
-  let H := find_IHtsz in solve_left_subsumption_impl H.
 
 Ltac solve_right_subsumption_impl IH := match goal with
 | Hr : ?Γ ⊢ ?e2 <: ?e3 : ?B | ?n2 |- _ ⊢ ?e1 <: ?e3 : ?A => match goal with
@@ -733,6 +735,7 @@ Ltac solve_l_forall_r_forall :=
   end
 .
 
+
 Ltac solve_with_IHtsz :=
   instantiate_cofinites;
   match goal with
@@ -740,11 +743,17 @@ Ltac solve_with_IHtsz :=
     match goal with
     | Hr : ?Γ ⊢ ?e2 <: ?e3 : ?B | ?n2 |- _ =>
       let IH := find_IHtsz in
-      apply IH with e2 B n1 n2; eauto 3; simpl in *;
-      autorewrite with trans; auto; simpl in *; omega
+      apply IH with e2 B n1 n2;
+      eauto 3;
+      simpl in *; autorewrite with trans; auto;
+      simpl in *; omega
     end
   end
 .
+
+Ltac solve_left_subsumption :=
+  solve [ solve_with_IHtsz
+        | let H := find_IHtsz in solve_left_subsumption_impl H].
 
 Ltac solve_abs :=
   match goal with

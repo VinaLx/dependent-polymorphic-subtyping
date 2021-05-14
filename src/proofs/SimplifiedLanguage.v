@@ -34,7 +34,6 @@ Proof.
   - intros * Wf. destruct Wf.
     + constructor.
     + econstructor; eauto.
-  Show Proof.
 Qed.
 
 

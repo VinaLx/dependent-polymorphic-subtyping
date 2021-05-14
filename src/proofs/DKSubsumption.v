@@ -159,6 +159,7 @@ Fixpoint shift (e : expr) (n : nat) : expr :=
   | e_var_f x => e_var_f x
   | e_kind k => e_kind k
   | e_int => e_int
+  | e_bot A => e_bot (shift A n)
   | e_num n => e_num n
   | e_app e1 e2 => e_app (shift e1 n) (shift e2 n)
   | e_pi A B => e_pi (shift A n) (shift B (S n))

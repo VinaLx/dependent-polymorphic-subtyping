@@ -146,6 +146,7 @@ Proof.
   - solve_subst.
   - solve_subst.
   - solve_subst.
+  - solve_subst.
   - adjust_cofinites_for gather_for_substitution.
     eapply s_mu.
     + inversion m. subst.

@@ -9,8 +9,32 @@ Require Import OccurenceReasoning.
 
 Require Import Program.Tactics.
 
-Definition Progressive (e : expr) : Prop := value e \/ exists e', e ⟶ e'.
-Definition EProgressive (e : eexpr) := evalue e \/ exists e', e ⋆⟶ e'.
+
+Fixpoint eruntime_valid (e : eexpr) : Prop :=
+  match e with
+  | ee_var_b _ => True
+  | ee_var_f _ => True
+  | ee_num _ => True
+  | ee_int => True
+  | ee_kind _ => True
+  | ee_bot => False
+  | ee_app a b => eruntime_valid a /\ eruntime_valid b
+  | ee_abs e' => eruntime_valid e'
+  | ee_bind e' => eruntime_valid e'
+  | ee_pi a b => eruntime_valid a /\ eruntime_valid b
+  | ee_all a b => eruntime_valid a /\ eruntime_valid b
+  | ee_castup e' => eruntime_valid e'
+  | ee_castdn e' => eruntime_valid e'
+  | ee_mu e' => eruntime_valid e'
+  end
+.
+
+Definition runtime_valid (e : expr) : Prop :=
+  eruntime_valid (extract e).
+
+
+Definition Progressive  (e : expr)  : Prop :=  value e \/ exists e', e  ⟶ e'.
+Definition EProgressive (e : eexpr) : Prop := evalue e \/ exists e', e ⋆⟶ e'.
 
 Hint Unfold Progressive : core.
 Hint Unfold EProgressive : core.
@@ -317,9 +341,6 @@ Qed.
 
 Hint Extern 1 (lc_expr _) => instantiate_cofinites : inst.
 
-Ltac cleanup_hyps := instantiate_trivial_equals; destruct_pairs; clear_dups.
-Ltac solve_progress_value := auto || left; eauto with inst.
-
 Lemma pi_ge_inversion : forall Γ e A B k,
     Γ ⊢ e <: e_pi A B : k -> (exists A' B', e = e_pi A' B') \/ (exists C' D', e = e_all C' D').
 Proof.
@@ -330,69 +351,6 @@ Proof.
   - now apply IHusub1 with A B.
 Qed.
 
-Lemma normal_form_forall_pi : forall Γ e A,
-    Γ ⊢ e : A -> value e ->
-    forall C D, A = e_all C D \/ A = e_pi C D ->
-    forall E F k, Γ ⊢ A <: e_pi E F : k ->
-    (exists A' b, e = e_abs A' b) \/ (exists A' b, e = e_bind A' b).
-Proof.
-  intros * H V.
-  dependent induction H.
-    all: try solve [inversion V]. (* solving cases where `e` is not value *)
-    all: intros C' D' [E | E]; inversion E; (* solving invalid cases *)
-      subst; intros; solve_impossible_reduction; eauto. (* solving trivial base cases *)
-  - assert (G ⊢ A <: e_pi E F : (e_kind k)).
-    now apply transitivity with (e_all C' D') k0.
-    apply pi_ge_inversion in H3. destruct H3; destruct_exists; subst.
-    eapply IHusub1; eauto.
-    eapply IHusub1; auto.
-    apply transitivity with (e_all C' D') k0; eauto.
-  - assert (G ⊢ A <: e_pi E F : (e_kind k)).
-    now apply transitivity with (e_pi C' D') k0.
-    apply pi_ge_inversion in H3. destruct H3; destruct_exists; subst.
-    eapply IHusub1; eauto.
-    eapply IHusub1; auto.
-    apply transitivity with (e_pi C' D') k0; eauto.
-Qed.
-
-Lemma normal_form_pi : forall Γ e A B,
-    Γ ⊢ e : e_pi A B -> value e ->
-    (exists A' b, e = e_abs A' b) \/ (exists A' b, e = e_bind A' b).
-Proof.
-  intros. conclude_type_refl H.
-  eapply normal_form_forall_pi; eauto.
-Qed.
-
-
-Ltac invert_to_normal_forms H :=
-  match type of H with
-  | _ ⊢ _ <: _ : e_pi ?A ?B => apply normal_form_pi in H; eauto; destruct H
-  end; destruct_exists; subst
-.
-
-Ltac invert_operator_to_nf :=
-  match goal with
-  | H : _ ⊢ ?e : e_pi _ _ |- ?g =>
-    match g with
-    | context [e] => invert_to_normal_forms H
-    | _ => fail
-    end
-  end
-.
-
-Ltac destruct_progressive_for_app :=
-  let destruct_with_new_name H := (
-      let V := fresh "V" in
-      let e' := fresh "e'" in
-      destruct H as [V | [e' H]])
-  in
-  match goal with
-  | H : Progressive ?e |- exists e', e_app ?e _ ⟶ e' =>
-    destruct_with_new_name H
-  | H : EProgressive ?e |- exists e', ee_app ?e _ ⋆⟶ e' =>
-    destruct_with_new_name H
-  end
-.
 
 Definition is_castup (e : expr) : Prop :=
   match e with
@@ -431,6 +389,16 @@ Lemma is_bind_eq : forall e,
 Proof.
   intros. destruct e; solve [inversion H | eauto].
 Qed.
+
+Ltac simplify_is_term_impl :=
+  match goal with
+  | H : is_castup _ |- _ => apply is_castup_eq in H as (? & ? & ?)
+  | H : is_bind _ |- _ => apply is_bind_eq in H as (? & ? & ?)
+  end; subst
+.
+
+Ltac simplify_is_term := repeat simplify_is_term_impl.
+
 
 Lemma num_type_inversion : forall Γ n A,
     Γ ⊢ e_num n : A -> Γ ⊢ e_int <: A : *.
@@ -482,6 +450,39 @@ Proof.
     apply kind_le_inversion in H0. now destruct_conjs.
 Qed.
 
+Lemma normal_form_forall_pi : forall Γ e A,
+    Γ ⊢ e : A -> value e ->
+    forall C D, A = e_all C D \/ A = e_pi C D ->
+    forall E F k, Γ ⊢ A <: e_pi E F : k ->
+    (exists A' b, e = e_abs A' b) \/ (exists A' b, e = e_bind A' b).
+Proof.
+  intros * H V.
+  dependent induction H.
+    all: try solve [inversion V]. (* solving cases where `e` is not value *)
+    all: intros C' D' [E | E]; inversion E; (* solving invalid cases *)
+      subst; intros; solve_impossible_reduction; eauto. (* solving trivial base cases *)
+  - assert (G ⊢ A <: e_pi E F : (e_kind k)).
+    now apply transitivity with (e_all C' D') k0.
+    apply pi_ge_inversion in H3. destruct H3; destruct_exists; subst.
+    eapply IHusub1; eauto.
+    eapply IHusub1; auto.
+    apply transitivity with (e_all C' D') k0; eauto.
+  - assert (G ⊢ A <: e_pi E F : (e_kind k)).
+    now apply transitivity with (e_pi C' D') k0.
+    apply pi_ge_inversion in H3. destruct H3; destruct_exists; subst.
+    eapply IHusub1; eauto.
+    eapply IHusub1; auto.
+    apply transitivity with (e_pi C' D') k0; eauto.
+Qed.
+
+Lemma normal_form_pi : forall Γ e A B,
+    Γ ⊢ e : e_pi A B -> value e ->
+    (exists A' b, e = e_abs A' b) \/ (exists A' b, e = e_bind A' b).
+Proof.
+  intros. conclude_type_refl H.
+  eapply normal_form_forall_pi; eauto.
+Qed.
+
 
 Lemma reducible_type : forall Γ e A B,
     Γ ⊢ e : A -> A ⟶ B -> not (is_castup e) -> not (is_bind e) -> value e -> False.
@@ -502,54 +503,168 @@ Proof.
   - contradict H1. simpl. auto.
 Qed.
 
-Theorem generalized_progress : forall e1 e2 A,
-    nil ⊢ e1 <: e2 : A -> Progressive e1 /\ Progressive e2.
+Ltac invert_to_normal_forms H :=
+  match type of H with
+  | _ ⊢ _ <: _ : e_pi ?A ?B =>
+             apply normal_form_pi in H; eauto using evalue_value; destruct H
+  end; destruct_exists; subst
+.
+
+Ltac invert_operator_to_nf :=
+  match goal with
+  | H : _ ⊢ ?e : e_pi _ _ |- ?g =>
+    match g with
+    | context [e] => invert_to_normal_forms H
+    | _ => fail
+    end
+  end
+.
+
+Local Ltac destruct_progressive_with_new_name H :=
+  let V := fresh "V" in
+  let e' := fresh "e'" in
+  destruct H as [V | (e' & H)].
+
+Ltac find_appropriate_progressive :=
+  match goal with
+  | H :  Progressive ?e |-  Progressive ( e_app ?e _) => H
+  | H : EProgressive ?e |- EProgressive (ee_app ?e _) => H
+  | H :  Progressive ?e |-  Progressive ( e_castdn ?e) => H
+  | H : EProgressive ?e |- EProgressive (ee_castdn ?e) => H
+  end
+.
+
+Ltac destruct_appropriate_progressive := try
+  let H := find_appropriate_progressive
+   in destruct_progressive_with_new_name H.
+
+
+Ltac fill_runtime_validity_impl :=
+  match goal with
+  | H : eruntime_valid ?e |- _ =>
+    match goal with
+    | H2 : eruntime_valid e -> _ |- _ => (pose proof (H2 H); clear H2)
+    end
+  end
+.
+
+Ltac fill_runtime_validity :=
+  repeat fill_runtime_validity_impl.
+
+Ltac runtime_validity_reasoning_impl :=
+  match goal with
+  | H : eruntime_valid ?e |- _ => progress
+    simpl in H;
+    match type of H with
+    | _ /\ _ => destruct H
+    | False => inversion H
+    | _ => idtac
+    end
+  end
+.
+
+Ltac runtime_validity_reasoning :=
+  repeat runtime_validity_reasoning_impl.
+
+Ltac simplify_runtime_validity :=
+  unfold runtime_valid in *;
+  runtime_validity_reasoning;
+  fill_runtime_validity.
+
+Ltac instantiate_quantified_equals :=
+  repeat match goal with
+  | H : forall a, ?b = a -> _ |- _ => specialize (H b eq_refl)
+  | H : forall a, a = ?b -> _ |- _  => specialize (H b eq_refl)
+  end
+.
+
+
+Ltac cleanup_hyps := repeat progress
+  (instantiate_quantified_equals;
+  simplify_runtime_validity;
+  instantiate_trivial_equals;
+  destruct_pairs; clear_dups).
+
+
+Ltac solve_progress_value := auto || left; eauto with inst.
+
+Hint Extern 3 =>
+  match goal with
+  | _ : False |- _ => contradiction
+  end : core
+.
+
+
+Theorem generalized_progress_r : forall e1 e2 A,
+    runtime_valid e2 ->
+    nil ⊢ e1 <: e2 : A -> Progressive e2.
 Proof.
-  intros.
+  intros * Hvalid H.
   dependent induction H; cleanup_hyps;
-    try solve [split; solve_progress_value].
-  (* var is not value *)
+    try solve [solve_progress_value];
+    (* solve cases for reductions in evaluation context *)
+    try destruct_appropriate_progressive; eauto.
+  (* var *)
   - inversion H0.
   (* app *)
-  - conclude_refls H1. split; right;
-    destruct_progressive_for_app;
-    eauto 3; (* solves r_app cases *)
-    invert_operator_to_nf.
-    + inversion V; subst. exists (H5 ^^ t). eauto.
-    + inversion V. inversion H11. subst.
-        pick fresh x. instantiate_cofinites.
-        exists (e_app (H5 ^` x) t). eauto.
-    + inversion V; subst. exists (H6 ^^ t). eauto.
-    + inversion V; inversion H11. subst.
-        pick fresh x. instantiate_cofinites.
-        exists (e_app (H6 ^` x) t). eauto.
-  - split; right; eauto.
-  - split.
-    + destruct H2.
-      * destruct (is_castup_dec e1), (is_bind_dec e1).
-        -- apply is_castup_eq in H5; destruct_conjs; subst; eauto.
-        -- apply is_castup_eq in H5; destruct_conjs; subst; eauto.
-        -- apply is_bind_eq in H6; destruct_conjs; subst;
-           eauto. Unshelve. exact 0.
-        -- apply reflexivity_l in H1.
-           eapply reducible_type in H1; [easy | eauto..].
-      * destruct H2. eauto.
-    + destruct H3.
-      * destruct (is_castup_dec e2), (is_bind_dec e2).
-        -- apply is_castup_eq in H5; destruct_conjs; subst; eauto.
-        -- apply is_castup_eq in H5; destruct_conjs; subst; eauto.
-        -- apply is_bind_eq in H6; destruct_conjs; subst; eauto.
-           Unshelve. exact 0.
-        -- apply reflexivity_r in H1.
-           eapply reducible_type in H1; [easy | eauto..].
-      * destruct H3. eauto.
+  - right. conclude_refls H1. invert_operator_to_nf.
+    (* abs *)
+    + inversion V. subst. exists (H8 ^^ t). eauto.
+    (* bind *)
+    + inversion V. inversion H12. subst.
+      pick fresh x. instantiate_cofinites.
+      exists (e_app (H8 ^` x) t). eauto.
+  (* mu *)
+  - right; eauto.
+  (* castdn *)
+  - destruct (is_castup_dec e2), (is_bind_dec e2); simplify_is_term;
+      (* follow the reduction if e2 is castup or bind *)
+      unshelve eauto. exact 0.
+    + eapply reducible_type in H2; eauto 3.
+Qed.
+
+Theorem generalized_progress_l : forall e1 e2 A,
+    runtime_valid e1 ->
+    nil ⊢ e1 <: e2 : A -> Progressive e1.
+Proof.
+  intros * Hvalid H.
+  dependent induction H; cleanup_hyps;
+    try solve [solve_progress_value];
+    (* solve cases for reductions in evaluation context *)
+    try destruct_appropriate_progressive; eauto.
+  (* var *)
+  - inversion H0.
+  (* app *)
+  - right. conclude_refls H1. invert_operator_to_nf.
+    (* abs *)
+    + eauto.
+    (* bind *)
+    + eauto.
+  (* mu *)
+  - eauto 6.
+  (* castdn *)
+  - destruct (is_castup_dec e1), (is_bind_dec e1); simplify_is_term;
+      (* follow the reduction if e1 is castup or bind *)
+      unshelve eauto. exact 0.
+    + eapply reducible_type in H2; eauto 3.
+Qed.
+
+Corollary generalized_progress : forall e1 e2 A,
+    runtime_valid e1 -> runtime_valid e2 ->
+    nil ⊢ e1 <: e2 : A -> Progressive e1 /\ Progressive e2.
+Proof.
+  intros. pose proof H1.
+  apply generalized_progress_l in H1.
+  apply generalized_progress_r in H2.
+  all: auto.
 Qed.
 
 Corollary progress : forall e A,
+    runtime_valid e ->
     nil ⊢ e : A -> Progressive e.
 Proof.
-  intros. apply generalized_progress in H.
-  now destruct H.
+  intros. apply generalized_progress in H0; auto.
+  now destruct H0.
 Qed.
 
 
@@ -561,93 +676,98 @@ Proof.
   easy.
 Qed.
 
+Local Hint Extern 1 (lc_eexpr (_ ⋆^` _)) => rewrite <- extract_open_var : core.
+Local Hint Extern 1 (lc_expr (_ ^` ?x)) => instantiate_cofinites_with x : core.
 
-Theorem generalized_erased_progress : forall e1 e2 A,
-    nil ⊢ e1 <: e2 : A -> forall e1' e2', extract e1 = e1' -> extract e2 = e2' ->
-    EProgressive e1' /\ EProgressive e2'.
+Lemma evalue_lc : forall e,
+    evalue e -> lc_eexpr e.
+Proof with auto.
+  intros; induction H...
+Qed.
+
+Local Hint Resolve evalue_lc : core.
+
+Lemma atom_habitable : atom.
+Proof.
+  pick fresh x. exact x.
+Qed.
+
+Local Hint Resolve atom_habitable : core.
+
+Theorem generalized_erased_progress_l : forall e1 e2 A
+  , nil ⊢ e1 <: e2 : A
+  -> forall e1', extract e1 = e1' -> eruntime_valid e1' -> EProgressive e1'.
 Proof.
   intros * H.
-  dependent induction H; simpl; intros e1' e2' E1 E2; subst; auto;
-    try solve [split; solve_progress_evalue].
-  (* var is not value *)
+  dependent induction H;
+    simpl; intros e1' E Hvalid; subst; auto;
+      try solve [solve_progress_evalue]; cleanup_hyps;
+        try (destruct_appropriate_progressive; right; eauto).
+  (* var *)
   - inversion H0.
   (* app *)
-  - instantiate_trivial_equals.
-    destruct IHusub2 with (extract e1) (extract e2); auto.
-    conclude_refls H1;
-    split; right; destruct_progressive_for_app; eauto; (* solve r_app cases *)
-      apply evalue_value in V; auto;
-        invert_operator_to_nf; simpl.
-    + exists ((extract H4) ⋆^^ (extract t)). constructor.
-      replace (ee_abs (extract H4)) with (extract (e_abs H2 H4)) by reflexivity.
-      all: eauto using lc_extract_lc.
-    + pick fresh x. exists (ee_app (extract H4 ⋆^` x) (extract t)).
-      eapply er_elim; eauto 3.
-      replace (ee_bind (extract H4)) with (extract (e_bind H2 H4)) by reflexivity.
-      eauto using lc_extract_lc.
-    + exists ((extract H5) ⋆^^ (extract t)). constructor.
-      replace (ee_abs (extract H5)) with (extract (e_abs H3 H5)) by reflexivity.
-      all: eauto using lc_extract_lc.
-    + pick fresh x. exists (ee_app (extract H5 ⋆^` x) (extract t)).
-      eapply er_elim; eauto 3.
-      replace (ee_bind (extract H5)) with (extract (e_bind H3 H5)) by reflexivity.
-      eauto using lc_extract_lc.
-  - split; right; exists ((extract s) ⋆^^ ee_mu (extract s));
-      econstructor; replace (ee_mu (extract s)) with (extract (e_mu t s)) by auto;
-      eauto using lc_extract_lc.
+  - conclude_refls H1. invert_operator_to_nf; simpl in *.
+    (* abs *)
+    + eauto.
+    (* bind *)
+    + solve [unshelve (eapply ex_intro; econstructor; auto); auto].
+  (* mu *)
+  - eauto 7.
   (* castdn *)
-  - instantiate_trivial_equals.
-    destruct IHusub2 with (extract e1) (extract e2); auto.
-    split.
-    + destruct H2.
-      * apply evalue_value in H2; auto.
-        destruct (is_castup_dec e1), (is_bind_dec e1).
-        -- apply is_castup_eq in H4 as (C & e1' & E). subst.
-           simpl. right. exists (extract e1'). eauto.
-        -- apply is_castup_eq in H4 as (C & e1' & E). subst.
-           simpl. right. exists (extract e1'). eauto.
-        -- apply is_bind_eq in H5 as (C & e1' & E). subst.
-           simpl. right. pick fresh x. exists (ee_castdn (extract e1' ⋆^` x)).
-           apply er_cast_inst with empty.
-           replace (ee_bind (extract e1')) with (extract (e_bind C e1')) by reflexivity.
-           eauto using lc_extract_lc. auto.
-        -- apply reflexivity_l in H1.
-           eapply reducible_type in H1; [easy | eauto..].
-      * destruct H2; eauto.
-    + destruct H3.
-      * apply evalue_value in H3; auto.
-        destruct (is_castup_dec e2), (is_bind_dec e2).
-        -- apply is_castup_eq in H4 as (C & e2' & E). subst.
-           simpl. right. exists (extract e2'). eauto.
-        -- apply is_castup_eq in H4 as (C & e2' & E). subst.
-           simpl. right. exists (extract e2'). eauto.
-        -- apply is_bind_eq in H5 as (C & e1' & E). subst.
-           simpl. right. pick fresh x. exists (ee_castdn (extract e1' ⋆^` x)).
-           apply er_cast_inst with empty.
-           replace (ee_bind (extract e1')) with (extract (e_bind C e1')) by reflexivity.
-           eauto using lc_extract_lc. auto.
-        -- apply reflexivity_r in H1.
-           eapply reducible_type in H1; [easy | eauto..].
-      * destruct H3; eauto.
-  (* forall_l *)
-  - split.
-    + solve_progress_evalue.
-    + instantiate_trivial_equals.
-      now destruct IHusub3 with (extract (B ^^ t)) (extract C).
-  (* forall_r *)
-  - split.
-    + instantiate_trivial_equals.
-      now destruct IHusub2 with (extract A) (extract A).
-    + solve_progress_evalue.
+  - destruct (is_castup_dec e1), (is_bind_dec e1); simplify_is_term; simpl in *.
+    + eauto.
+    + eauto.
+    + solve [unshelve (eapply ex_intro; econstructor; auto); auto].
+    + eapply reducible_type in H2; eauto using evalue_value.
+Qed.
+
+Theorem generalized_erased_progress_r : forall e1 e2 A
+  , nil ⊢ e1 <: e2 : A
+  -> forall e2', extract e2 = e2' -> eruntime_valid e2' -> EProgressive e2'.
+Proof.
+  intros * H.
+  dependent induction H;
+    simpl; intros e2' E Hvalid; subst; auto;
+      try solve [solve_progress_evalue]; cleanup_hyps;
+        try (destruct_appropriate_progressive; right; eauto).
+  (* var *)
+  - inversion H0.
+  (* app *)
+  - conclude_refls H1. invert_operator_to_nf; simpl in *.
+    (* abs *)
+    + eauto.
+    (* bind *)
+    + solve [unshelve (eapply ex_intro; econstructor; auto); auto].
+  (* mu *)
+  - eauto 7.
+  (* castdn *)
+  - destruct (is_castup_dec e2), (is_bind_dec e2); simplify_is_term; simpl in *.
+    + eauto.
+    + eauto.
+    + solve [unshelve (eapply ex_intro; econstructor; auto); auto].
+    + eapply reducible_type in H2; eauto using evalue_value.
+Qed.
+
+Theorem generalized_erased_progress : forall e1 e2 A,
+    nil ⊢ e1 <: e2 : A ->
+    forall e1' e2', eruntime_valid e1' -> eruntime_valid e2'
+             -> extract e1 = e1' -> extract e2 = e2' ->
+    EProgressive e1' /\ EProgressive e2'.
+Proof.
+  intros.
+  pose proof H as H'.
+  apply generalized_erased_progress_l with (e1' := e1') in H; auto.
+  apply generalized_erased_progress_r with (e2' := e2') in H'; auto.
 Qed.
 
 Corollary erased_progress : forall e A,
+    runtime_valid e ->
     nil ⊢ e : A -> EProgressive (extract e).
 Proof.
   intros.
   apply generalized_erased_progress
-    with (e1' := extract e) (e2' := extract e) in H.
-  destruct H. all: auto.
+    with (e1' := extract e) (e2' := extract e) in H0.
+  destruct H0. all: auto.
 Qed.
 
 Lemma bind_extraction_inversion : forall e ee,

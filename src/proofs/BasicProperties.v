@@ -57,8 +57,6 @@ Hint Resolve reflexivity_l : refl.
 
 Hint Extern 4 (⊢ _ , _ : _) => eauto 4 with refl : weakening.
 
-Ltac something := econstructor 5 with (L := empty).
-
 Theorem weakening : forall Γ1 Γ2 Γ3 e1 e2 A,
     Γ1 ,, Γ3 ⊢ e1 <: e2 : A ->
     ⊢ Γ1 ,, Γ2 ,, Γ3 ->
@@ -66,6 +64,7 @@ Theorem weakening : forall Γ1 Γ2 Γ3 e1 e2 A,
 Proof with autorewrite with assoc; eauto with weakening.
   intros until A. intro Hsub.
   dependent induction Hsub; intro Hwf; auto.
+  - eauto.
   - pick fresh x and apply s_abs for weakening...
   - pick fresh x and apply s_pi for weakening...
   - apply s_app with A...
@@ -101,6 +100,8 @@ Proof.
   now apply weakening.
 Qed.
 
+Hint Cut [s_abs | s_pi | s_bind | s_mu | s_forall_l | s_forall_r | s_forall] : no_binders.
+
 Theorem context_narrowing : forall Γ1 Γ2 x A B C e1 e2 k,
   Γ1 , x : B ,, Γ2 ⊢ e1 <: e2 : C ->
   Γ1 ⊢ A <: B : e_kind k ->
@@ -126,6 +127,7 @@ Proof with autorewrite with assoc; eauto 3.
   - auto.
   - auto.
   - auto.
+  - eauto.
   - pick fresh x' and apply s_abs...
   - pick fresh x' and apply s_pi...
   - eauto.
