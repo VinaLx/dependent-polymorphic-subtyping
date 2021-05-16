@@ -51,12 +51,22 @@ Proof.
   + eauto using head_kind_box_never_welltype.
 Qed.
 
+Lemma pi_head_head_box_impossible : forall Γ e1 e2 A B n,
+    Γ ⊢ e1 <: e2 : e_pi A B -> head_kind B k_box n -> False.
+Proof.
+  intros.
+  eapply head_kind_box_impossible in H.
+  - destruct H; contradiction || discriminate.
+  - eauto.
+Qed.
+
+
 Lemma pi_head_box_impossible : forall Γ e1 e2 A,
     not (Γ ⊢ e1 <: e2 : e_pi A BOX).
 Proof.
-  intros. intro. eapply head_kind_box_impossible in H.
-  - destruct H. inversion H. auto.
-  - constructor. apply h_kind. Unshelve. exact 0.
+  intros. intro.
+  unshelve (eapply pi_head_head_box_impossible; eauto).
+  exact 0.
 Qed.
 
 Ltac solve_open_is_box :=
@@ -82,14 +92,23 @@ Proof.
   - solve_open_is_box.
 Qed.
 
+Lemma head_kind_box_never_reduce : forall Γ e A n,
+    Γ ⊢ e : A -> head_kind A k_box n -> forall e', not (e ⟶ e').
+Proof.
+  intros * Sub Hk.
+  dependent induction Sub; intros; intro R;
+    try solve [inversion Hk | inversion R | eauto 3 using head_kind_box_never_welltype].
+  - apply head_kind_invert_subst in Hk as [|].
+    + eauto using head_kind_box_never_welltype.
+    + eapply pi_head_head_box_impossible; eauto.
+Qed.
+
 Lemma box_never_reduce : forall Γ e,
     Γ ⊢ e : BOX -> forall e', not (e ⟶ e').
 Proof.
-  intros * Sub.
-  dependent induction Sub; intros; intro R;
-    try solve [inversion R | box_welltype_contradiction].
-  (* r_app *)
-  - solve_open_is_box.
+  intros.
+  unshelve (eapply head_kind_box_never_reduce; eauto).
+  exact 0.
 Qed.
 
 Lemma castup_box_never_welltype : forall Γ A B,

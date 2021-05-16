@@ -891,47 +891,44 @@ Tactic Notation "absurd" "by" tactic(t) :=
   assert False by t; contradiction.
 
 Lemma deterministic_type_reduction' : forall e e',
-    e ⟶ e' -> forall Γ A n k, Γ ⊢ e : A -> head_kind A k n -> e ⟹ e'.
+    e ⟶ e' -> forall Γ A n, Γ ⊢ e : A -> head_kind A k_star n -> e ⟹ e'.
 Proof.
   intros * R.
   induction R; intros * Sub K; eauto.
   (* r_app *)
   - dependent induction Sub.
-    + box_reasoning.
-      * destruct k; box_reasoning.
-      * eauto.
+    + box_reasoning. eauto.
     (* or `eauto using head_kind_sub_l` *)
-    + eapply IHSub1; eauto. eapply head_kind_sub_l; eauto.
+    + eauto 3 using head_kind_sub_l.
   (* r_inst *)
   - dependent induction Sub.
     + box_reasoning.
-      * destruct k; box_reasoning.
       * apply bind_inversion in Sub2. destruct_conjs.
-        eapply head_kind_sub_l in H6. inversion H6. eauto.
-    + eapply IHSub1; eauto. eapply head_kind_sub_l; eauto.
+        eapply head_kind_sub_l in H6; eauto 2. inversion H6.
+    + eauto 3 using head_kind_sub_l.
   (* r_castdn *)
   - dependent induction Sub.
-    + destruct k; box_reasoning.
+    + box_reasoning.
       absurd by eauto 3 using expr_of_box_never_be_reduced.
-    + eapply IHSub1; eauto. eapply head_kind_sub_l; eauto.
+    + eauto 3 using head_kind_sub_l.
   (* r_cast_inst *)
   - dependent induction Sub.
-    + destruct k; box_reasoning.
+    + box_reasoning.
       absurd by eauto 3 using expr_of_box_never_be_reduced.
-    + eapply IHSub1; eauto. eapply head_kind_sub_l; eauto.
+    + eauto 3 using head_kind_sub_l.
   (* r_cast_elim *)
   - dependent induction Sub.
-    + destruct k; box_reasoning.
+    + box_reasoning.
       absurd by eauto 3 using expr_of_box_never_be_reduced.
-    + eapply IHSub1; eauto. eapply head_kind_sub_l; eauto.
+    + eauto 3 using head_kind_sub_l.
 Qed.
 
 Lemma deterministic_type_reduction : forall Γ e e' k,
     e ⟶ e' -> Γ ⊢ e : e_kind k -> e ⟹ e'.
 Proof.
-  intros.
-  eapply deterministic_type_reduction'; eauto.
-  Unshelve. exact 0.
+  intros. destruct k.
+  - unshelve (eapply deterministic_type_reduction'; eauto). exact 0.
+  - exfalso. eapply box_never_reduce; eauto.
 Qed.
 
 Lemma deterministic_type_reduction_2 : forall Γ e A A',
@@ -949,6 +946,7 @@ Lemma deterministic_erased_reduction : forall e e1 e2,
 Proof.
   induction e; simpl; intros E1 E2 R1 R2 Γ A Sub;
     solve_impossible_reduction.
+  (* app *)
   - inversion R1; inversion R2; subst;
       invert_extractions; solve_impossible_reduction.
     + dependent induction Sub.
@@ -961,7 +959,9 @@ Proof.
       clear IHSub1 IHSub2.
       apply bind_inversion in Sub2; destruct_conjs.
       pick fresh x'. instantiate_cofinites. find_extract_invariants.
+  (* mu *)
   - inversion R1; inversion R2; subst. auto.
+  (* castdn *)
   - inversion R1; inversion R2; subst;
       invert_extractions; solve_impossible_reduction.
     + dependent induction Sub.
