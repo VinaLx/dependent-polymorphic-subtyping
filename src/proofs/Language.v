@@ -284,7 +284,7 @@ Inductive mono_type : expr -> Prop :=    (* defn mono_type *)
  | mono_lit : forall (n:number),
      mono_type (e_num n)
  | mono_bot : forall (A:expr),
-     mono_type A ->
+     lc_expr A ->
      mono_type (e_bot A)
  | mono_app : forall (e1 e2:expr),
      mono_type e1 ->
@@ -294,24 +294,23 @@ Inductive mono_type : expr -> Prop :=    (* defn mono_type *)
      mono_type A ->
       ( forall x , x \notin  L  -> mono_type  ( open_expr_wrt_expr B (e_var_f x) )  )  ->
      mono_type (e_pi A B)
- | mono_lambda : forall (L:vars) (A B:expr),
-     mono_type A ->
-      ( forall x , x \notin  L  -> mono_type  ( open_expr_wrt_expr B (e_var_f x) )  )  ->
-     mono_type (e_abs A B)
- | mono_bind : forall (L:vars) (A B:expr),
-     mono_type A ->
-      ( forall x , x \notin  L  -> mono_type  ( open_expr_wrt_expr B (e_var_f x) )  )  ->
-     mono_type (e_bind A B)
+ | mono_lambda : forall (L:vars) (A e:expr),
+     lc_expr A ->
+      ( forall x , x \notin  L  -> mono_type  ( open_expr_wrt_expr e (e_var_f x) )  )  ->
+     mono_type (e_abs A e)
+ | mono_bind : forall (L:vars) (A e:expr),
+     lc_expr A ->
+      ( forall x , x \notin  L  -> mono_type  ( open_expr_wrt_expr e (e_var_f x) )  )  ->
+     mono_type (e_bind A e)
  | mono_mu : forall (L:vars) (A e:expr),
-     mono_type A ->
+     lc_expr A ->
       ( forall x , x \notin  L  -> mono_type  ( open_expr_wrt_expr e (e_var_f x) )  )  ->
      mono_type (e_mu A e)
  | mono_castup : forall (A e:expr),
-     mono_type A ->
+     lc_expr A ->
      mono_type e ->
      mono_type (e_castup A e)
- | mono_castdn : forall (e B:expr),
-     mono_type B ->
+ | mono_castdn : forall (e:expr),
      mono_type e ->
      mono_type (e_castdn e).
 

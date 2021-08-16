@@ -266,8 +266,9 @@ Proof.
     + rewrite subst_open_var_assoc, subst_extract; auto 2.
       eauto 4 using fv_subst_inclusion.
   - pick_fresh_with_dom_and_apply ss_mu; eauto.
-    + inversion H. subst. pick fresh x'' and apply mono_mu. auto.
-      autorewrite with assoc; auto 3.
+    + inversion H. subst. pick fresh x'' and apply mono_mu.
+      * auto using lc_subst.
+      * autorewrite with assoc; auto 3.
     + assoc_goal_and_apply H1. eapply wf_cons; eauto.
   - eauto using reduction_substitution.
   - eauto using reduction_substitution.
@@ -435,13 +436,13 @@ Qed.
 Fixpoint forall_order (e : expr) : nat :=
   match e with
   | e_app  f a => forall_order f + forall_order a
-  | e_abs  A B => forall_order A + forall_order B
+  | e_abs  A B => forall_order B
   | e_pi   A B => forall_order A + forall_order B
-  | e_bind A B => forall_order A + forall_order B
+  | e_bind A B => forall_order B
   | e_all  A B => S (forall_order A + forall_order B)
-  | e_castup A e => forall_order A + forall_order e
+  | e_castup A e => forall_order e
   | e_castdn   e => forall_order e
-  | e_mu   A e => forall_order A + forall_order e
+  | e_mu   A e => forall_order e
   | _ => 0
   end
 .
@@ -497,7 +498,7 @@ Proof.
   intros. induction H; simpl; auto;
   try solve [ now rewrite IHmono_type1, IHmono_type2
         | instantiate_cofinites; rewrite open_var_forall_order_eq in H1;
-          now rewrite IHmono_type, H1].
+          auto || now rewrite IHmono_type].
 Qed.
 
 Lemma open_mono_order_rec : forall e v n,

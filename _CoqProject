@@ -11,6 +11,7 @@ src/proofs/LanguageUtil.v
 src/proofs/Extraction.v
 src/proofs/Properties.v
 src/proofs/Tactics.v
+src/proofs/Experimental.v
 src/proofs/Transitivity.v
 src/proofs/KindUniqueness.v
 src/proofs/KindProperties.v

@@ -550,22 +550,19 @@ Hint Extern 1 (lc_expr _) => solve_more_lc : core.
 
 Lemma subst_mono : forall e x e',
     mono_type e -> mono_type e' -> mono_type ([e' / x] e).
-Proof.
+Proof with eauto using lc_subst.
   intros.
-  induction H; simpl; eauto.
+  induction H; simpl...
   (* var *)
   - destruct (x0 == x); auto.
   - pick fresh x' and apply mono_pi.
     + assumption.
     + autorewrite with assoc; auto.
-  - pick fresh x' and apply mono_lambda.
-    + assumption.
+  - pick fresh x' and apply mono_lambda...
     + autorewrite with assoc; auto.
-  - pick fresh x' and apply mono_bind.
-    + assumption.
+  - pick fresh x' and apply mono_bind...
     + autorewrite with assoc; auto.
-  - pick fresh x' and apply mono_mu.
-    + assumption.
+  - pick fresh x' and apply mono_mu...
     + autorewrite with assoc; auto.
 Qed.
 

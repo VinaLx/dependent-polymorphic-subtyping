@@ -150,7 +150,8 @@ Proof.
   - adjust_cofinites_for gather_for_substitution.
     eapply s_mu.
     + inversion m. subst.
-      pick fresh x' and apply mono_mu; autorewrite with assoc; eauto.
+      pick fresh x' and apply mono_mu; autorewrite with assoc;
+        eauto using lc_subst.
     + apply_substitution_strategy.
     + apply_substitution_strategy.
   - solve_subst.

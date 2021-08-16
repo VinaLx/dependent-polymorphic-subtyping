@@ -149,7 +149,6 @@ monotype int
 ----------- :: lit
 monotype n
 
-monotype A
 ----------------- :: bot
 monotype bot : A
 
@@ -163,27 +162,22 @@ monotype B
 ---------------------- :: pi
 monotype pi x : A . B
 
-monotype A
-monotype B
+monotype e
 -------------------------- :: lambda
-monotype lambda x : A . B
+monotype lambda x : A . e
 
-monotype A
-monotype B
+monotype e
 ------------------------ :: bind
-monotype bind x : A . B
+monotype bind x : A . e
 
-monotype A
 monotype e
 ---------------------- :: mu
 monotype mu x : A . e
 
-monotype A
 monotype e
 ---------------------- :: castup
 monotype castup [A] e
 
-monotype B
 monotype e
 ---------------------- :: castdn
 monotype castdn e
